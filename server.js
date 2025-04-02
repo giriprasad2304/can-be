@@ -1,17 +1,30 @@
-require('dotenv').config(); // Load environment variables at the top
+require('dotenv').config(); // Load environment variables
 
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
 
 const app = express();
 app.use(express.json());
 
-// CORS Middleware
-app.use((req, res, next) => {
+// ✅ Proper CORS Middleware
+const allowedOrigins = [
+    "https://giriprasad2304.github.io", // Your frontend URL
+    "http://localhost:3000" // For local testing
+];
+
+app.use(cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+// ✅ Handle Preflight Requests
+app.options("*", (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    next();
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.sendStatus(200);
 });
 
 // Root route
@@ -22,6 +35,7 @@ app.get("/", (req, res) => {
 const MONGODB_URI = process.env.MONGODB_URI;
 const PORT = process.env.PORT || 3000;
 
+// ✅ Connect to MongoDB
 const connectDB = async () => {
     try {
         await mongoose.connect(MONGODB_URI, {
@@ -49,7 +63,7 @@ const startServer = async () => {
 
 startServer();
 
-// Menu Schema and Routes
+// ✅ Menu Schema and Routes
 const menuSchema = new mongoose.Schema({
     category: String,
     items: [
@@ -73,7 +87,7 @@ app.get('/menu', async (req, res) => {
     }
 });
 
-// Order Schema and Routes
+// ✅ Order Schema and Routes
 const orderSchema = new mongoose.Schema({
     consumer: String,
     flavour: String,
@@ -85,37 +99,24 @@ const orderSchema = new mongoose.Schema({
 const Order = mongoose.model('Order', orderSchema);
 
 app.post('/order', async (req, res) => {
-    const { consumer, flavour, quantity, phone, info } = req.body;
+    console.log("Incoming order data:", req.body); // Debugging log
 
-    const newOrder = new Order({
-        consumer,
-        flavour,
-        quantity,
-        phone,
-        info
-    });
+    const { consumer, flavour, quantity, phone, info } = req.body;
+    if (!consumer || !flavour || !quantity || !phone || !info) {
+        return res.status(400).json({ message: "All fields are required" });
+    }
 
     try {
+        const newOrder = new Order({ consumer, flavour, quantity, phone, info });
         await newOrder.save();
-        res.status(201).json({ message: 'Order created' });
+        res.status(201).json({ message: "Order created" });
     } catch (err) {
-        res.status(500).json({ message: 'Error creating order: ' + err.message });
+        console.error("Error creating order:", err.message);
+        res.status(500).json({ message: "Error creating order: " + err.message });
     }
 });
 
-// Insert Sample Order Function
-const insertSampleOrder = async (consumer, flavour, quantity, phone, info) => {
-    const sampleOrder = { consumer, flavour, quantity, phone, info };
-
-    try {
-        await Order.create(sampleOrder);
-        console.log('Sample order inserted');
-    } catch (error) {
-        console.error('Error inserting sample order:', error.message);
-    }
-};
-
-// Handle Undefined Routes
+// ✅ Handle Undefined Routes
 app.use((req, res) => {
     res.status(404).json({ message: 'Route not found' });
 });
