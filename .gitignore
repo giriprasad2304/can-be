@@ -1,5 +1,8 @@
-# Node.js dependencies
-node_modules
+# Ignore environment files
+.env
+
+# Node.js modules
+node_modules/
 
 # Logs
 logs/
@@ -11,11 +14,6 @@ yarn-error.log*
 # Environment variables
 .env
 
-# Database credentials or sensitive files
-*.env
-*.key
-*.pem
-
 # OS-specific files
 .DS_Store
 Thumbs.db
@@ -23,7 +21,6 @@ Thumbs.db
 # IDE-specific files
 .vscode/
 .idea/
-*.swp
 
 # Build files
 dist/
@@ -32,7 +29,30 @@ build/
 # Temporary files
 *.tmp
 *.temp
-*.bak
 
-# Git-specific files
-.git/
+# Coverage directory
+coverage/
+
+# Debug files
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm/
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Package lock files
+package-lock.json
+yarn.lock
