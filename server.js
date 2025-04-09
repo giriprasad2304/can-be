@@ -11,6 +11,7 @@ app.use(express.json());
 const allowedOrigins = [
     "https://giriprasad2304.github.io", // Your frontend URL
     "http://localhost:3000" // For local testing
+    "https://giriprasad2304.github.io/can-fe/"
 ];
 
 app.use(cors({
