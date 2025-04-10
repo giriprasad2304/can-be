@@ -1,121 +1,134 @@
-require('dotenv').config(); // Load environment variables at the top
+require('dotenv').config(); 
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
 
 const app = express();
+
+// Middleware
+app.use(cors());
 app.use(express.json());
 
-// CORS Middleware with OPTIONS handling
-app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    if (req.method === "OPTIONS") {
-        return res.status(200).end();
-    }
-    next();
-});
-
-// Root route
-app.get("/", (req, res) => {
-    res.send("Hello, World!");
-});
-
+// MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3005;
 
-const connectDB = async () => {
-    try {
-        await mongoose.connect(MONGODB_URI, {
-            connectTimeoutMS: 10000,
-            serverSelectionTimeoutMS: 10000
-        });
-        console.log('Connected to database');
-    } catch (error) {
-        console.error('Database connection error:', error.message);
-        throw error;
-    }
-};
+mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('Connected to MongoDB'))
+    .catch(err => console.error('MongoDB connection error:', err));
 
-const startServer = async () => {
-    try {
-        await connectDB();
-        app.listen(PORT, () => {
-            console.log(`Server started on port ${PORT}`);
-        });
-    } catch (error) {
-        console.error('Server startup failed:', error.message);
-        process.exit(1);
-    }
-};
-
-startServer();
-
-// Menu Schema and Routes
-const menuSchema = new mongoose.Schema({
-    category: String,
-    items: [{
-        name: String,
-        price: String,
-        image: String,
-        quantity: Number
-    }]
-});
-
-const Menu = mongoose.model('Menu', menuSchema);
-
-app.get('/menu', async (req, res) => {
-    try {
-        const menu = await Menu.find();
-        res.json(menu);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-});
-
-// Order Schema and Routes
+// Order schema and model
 const orderSchema = new mongoose.Schema({
-    consumer: String,
-    flavour: String,
+    consumer: String, // Name of the consumer
     quantity: Number,
-    phone: String,
-    info: String
+    date: { type: Date, default: Date.now }
 });
 
 const Order = mongoose.model('Order', orderSchema);
 
-app.post('/order', async (req, res) => {
-    console.log(req.body); // Log the request body
-    const { consumer, flavour, quantity, phone, info } = req.body;
+// Define the menuSchema
+const menuSchema = new mongoose.Schema({
+    category: String,
+    items: [
+        {
+            name: String,
+            price: String,
+            image: String,
+            quantity: Number
+        }
+    ]
+});
 
-    const newOrder = new Order({
-        consumer,
-        flavour,
-        quantity,
-        phone,
-        info
-    });
+// Create the Menu model
+const Menu = mongoose.model('Menu', menuSchema);
 
+// Test route
+app.get('/api/test', (req, res) => {
+    res.send('API is working!');
+});
+
+// API endpoint to fetch orders
+app.get('/api/orders', async (req, res) => {
     try {
-        await newOrder.save();
-        res.status(201).json({ message: 'Order created' });
+        const orders = await Order.find();
+        console.log('Orders fetched:', orders); // Debugging log
+        res.json(orders);
     } catch (err) {
-        res.status(500).json({ message: 'Error creating order: ' + err.message });
+        console.error('Error fetching orders:', err);
+        res.status(500).json({ error: 'Failed to fetch orders' });
     }
 });
 
-// Insert Sample Order Function (optional)
-const insertSampleOrder = async (consumer, flavour, quantity, phone, info) => {
-    const sampleOrder = { consumer, flavour, quantity, phone, info };
+// API endpoint to delete an order by phone number
+app.delete('/api/orders', async (req, res) => {
     try {
-        await Order.create(sampleOrder);
-        console.log('Sample order inserted');
-    } catch (error) {
-        console.error('Error inserting sample order:', error.message);
-    }
-};
+        const { phone } = req.body; // Expect phone number in the request body
+        const order = await Order.findOneAndDelete({ phone });
 
-// Handle Undefined Routes
-app.use((req, res) => {
-    res.status(404).json({ message: 'Route not found' });
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found or incorrect phone number' });
+        }
+
+        res.json({ message: 'Order deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting order:', err);
+        res.status(500).json({ error: 'Failed to delete order' });
+    }
+});
+
+// Endpoint to update the quantity of a specific item
+app.put('/api/menu/update-quantity', async (req, res) => {
+    const { category, itemName, newQuantity } = req.body;
+
+    try {
+        const menu = await Menu.findOneAndUpdate(
+            { category, "items.name": itemName }, // Find the category and item by name
+            { $set: { "items.$.quantity": newQuantity } }, // Update the quantity of the matched item
+            { new: true } // Return the updated document
+        );
+
+        if (!menu) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
+        res.json({ message: 'Quantity updated successfully', menu });
+    } catch (error) {
+        console.error('Error updating quantity:', error);
+        res.status(500).json({ error: 'Failed to update quantity' });
+    }
+});
+
+// Endpoint to fetch categories and items
+app.get('/api/menu/categories', async (req, res) => {
+    try {
+        const categories = await Menu.find({}, 'category items.name'); // Fetch categories and item names
+        console.log('Categories fetched:', categories); // Debugging log
+        res.json(categories);
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+        res.status(500).json({ error: 'Failed to fetch categories' });
+    }
+});
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+}).on('error', (err) => {
+    console.error('Failed to start server:', err);
+});
+
+app.post('/api/menu/add-item', async (req, res) => {
+    const { category, name, price, image, quantity } = req.body;
+
+    try {
+        const menu = await Menu.findOneAndUpdate(
+            { category }, // Find the category
+            { $push: { items: { name, price, image, quantity } } }, // Add the new item to the items array
+            { new: true, upsert: true } // Create the category if it doesn't exist
+        );
+
+        res.json({ message: 'Item added successfully', menu });
+    } catch (error) {
+        console.error('Error adding item:', error);
+        res.status(500).json({ error: 'Failed to add item' });
+    }
 });
